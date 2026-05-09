@@ -72,6 +72,43 @@
     0%, 100% { transform: translateY(0) scaleX(1); }
     50% { transform: translateY(-12px) scaleX(1.05); }
   }
+  .rabbit.stunned { filter: grayscale(0.6) brightness(0.8); }
+  .stun-star {
+    position: absolute;
+    font-size: 0.7em;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: translateX(-50%) rotate(0deg); }
+    to   { transform: translateX(-50%) rotate(360deg); }
+  }
+  .obstacle {
+    position: absolute;
+    font-size: clamp(22px, 6.5vw, 34px);
+    transform: translateY(-50%);
+    cursor: pointer;
+    z-index: 2;
+    filter: drop-shadow(1px 1px 1px #0006);
+    animation: sway 1.5s ease-in-out infinite;
+  }
+  @keyframes sway {
+    0%, 100% { transform: translateY(-50%) rotate(-3deg); }
+    50%      { transform: translateY(-50%) rotate(3deg); }
+  }
+  .poof {
+    position: absolute;
+    font-size: clamp(20px, 6vw, 28px);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    animation: poof 0.5s ease-out forwards;
+  }
+  @keyframes poof {
+    0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+  }
   .rabbit.chosen::after {
     content: "⭐";
     position: absolute;
@@ -175,7 +212,7 @@
     <button id="start" disabled>🏁 Départ !</button>
     <button id="reset">🔄 Nouvelle course</button>
   </div>
-  <div id="cheer-hint">💡 Tape sur la piste pour encourager ton lapin !</div>
+  <div id="cheer-hint">💡 Tape sur les 🌿 pour les enlever, ou tape la piste pour encourager ton lapin !</div>
   <div id="track">
     <div class="finish"></div>
     <div class="carrot">🥕</div>
@@ -205,6 +242,9 @@ let lanes = [];
 let rabbitsEl = [];
 let races = 0;
 let wins = 0;
+let raceInterval = null;
+let obstacles = [];
+let stunned = [];
 
 function buildTrack() {
   // remove old lanes & rabbits
@@ -229,6 +269,49 @@ function buildTrack() {
     track.appendChild(rab);
     rabbitsEl.push(rab);
   });
+}
+
+function spawnObstacles() {
+  obstacles.forEach(arr => arr.forEach(o => o.el.remove()));
+  obstacles = RABBITS.map(() => []);
+  stunned = RABBITS.map(() => 0);
+  RABBITS.forEach((_, laneIdx) => {
+    const count = 2 + Math.floor(Math.random() * 2);
+    const taken = [];
+    for (let i = 0; i < count; i++) {
+      let x, tries = 0;
+      do {
+        x = 25 + Math.random() * 55;
+        tries++;
+      } while (tries < 8 && taken.some(t => Math.abs(t - x) < 12));
+      taken.push(x);
+      const obs = document.createElement('div');
+      obs.className = 'obstacle';
+      obs.textContent = '🌿';
+      obs.style.left = x + '%';
+      obs.style.top = (laneIdx * 20 + 10) + '%';
+      obs.dataset.lane = laneIdx;
+      obs.dataset.x = x;
+      track.appendChild(obs);
+      obstacles[laneIdx].push({ x, el: obs });
+    }
+  });
+}
+
+function setStun(idx, on) {
+  if (on) {
+    rabbitsEl[idx].classList.add('stunned');
+    if (!rabbitsEl[idx].querySelector('.stun-star')) {
+      const s = document.createElement('span');
+      s.className = 'stun-star';
+      s.textContent = '💫';
+      rabbitsEl[idx].appendChild(s);
+    }
+  } else {
+    rabbitsEl[idx].classList.remove('stunned');
+    const s = rabbitsEl[idx].querySelector('.stun-star');
+    if (s) s.remove();
+  }
 }
 
 function buildPicker() {
@@ -279,32 +362,44 @@ function startRace() {
   racing = true;
   startBtn.disabled = true;
   positions = RABBITS.map(() => 0);
-  rabbitsEl.forEach(r => r.style.left = '2%');
+  rabbitsEl.forEach((r, i) => { r.style.left = '2%'; setStun(i, false); });
+  spawnObstacles();
   statusEl.textContent = "3... 2... 1... GO ! 🏁";
   beep(440, 0.1);
   setTimeout(() => beep(440, 0.1), 400);
   setTimeout(() => beep(880, 0.3), 800);
 
   setTimeout(() => {
-    const interval = setInterval(() => {
+    raceInterval = setInterval(() => {
       let winner = -1;
       for (let i = 0; i < RABBITS.length; i++) {
-        const speed = 0.3 + Math.random() * 1.2;
-        positions[i] += speed;
-        if (Math.random() < 0.15) hop(i);
-        rabbitsEl[i].style.left = `calc(2% + ${positions[i]}% )`;
-        if (positions[i] >= 88 && winner === -1) winner = i;
+        if (stunned[i] > 0) {
+          stunned[i]--;
+          if (stunned[i] === 0) setStun(i, false);
+        } else {
+          const speed = 0.3 + Math.random() * 1.2;
+          const newPos = positions[i] + speed;
+          const hit = obstacles[i].find(o => positions[i] < o.x && newPos >= o.x);
+          if (hit) {
+            positions[i] = hit.x - 0.5;
+            stunned[i] = 8;
+            setStun(i, true);
+            beep(180, 0.1);
+          } else {
+            positions[i] = newPos;
+            if (Math.random() < 0.15) hop(i);
+          }
+          rabbitsEl[i].style.left = `calc(2% + ${positions[i]}% )`;
+          if (positions[i] >= 88 && winner === -1) winner = i;
+        }
       }
       if (winner !== -1) {
-        clearInterval(interval);
+        clearInterval(raceInterval);
         finishRace(winner);
       }
     }, 80);
-    raceInterval = interval;
   }, 1000);
 }
-
-let raceInterval = null;
 
 function finishRace(winner) {
   racing = false;
@@ -331,6 +426,9 @@ function reset() {
   if (raceInterval) clearInterval(raceInterval);
   racing = false;
   chosen = null;
+  document.querySelectorAll('.obstacle, .poof').forEach(e => e.remove());
+  obstacles = [];
+  stunned = [];
   buildTrack();
   buildPicker();
   startBtn.disabled = true;
@@ -355,6 +453,22 @@ function confetti() {
 // Cheer: tap on track to give chosen rabbit a small boost
 track.addEventListener('pointerdown', (e) => {
   if (!racing || chosen === null) return;
+  if (e.target.classList && e.target.classList.contains('obstacle')) {
+    const laneIdx = parseInt(e.target.dataset.lane);
+    const x = parseFloat(e.target.dataset.x);
+    obstacles[laneIdx] = obstacles[laneIdx].filter(o => o.el !== e.target);
+    const rect = track.getBoundingClientRect();
+    const poof = document.createElement('div');
+    poof.className = 'poof';
+    poof.textContent = '💨';
+    poof.style.left = (e.clientX - rect.left) + 'px';
+    poof.style.top  = (e.clientY - rect.top)  + 'px';
+    track.appendChild(poof);
+    setTimeout(() => poof.remove(), 500);
+    e.target.remove();
+    beep(660, 0.06);
+    return;
+  }
   positions[chosen] += 1.5;
   hop(chosen);
   beep(880, 0.04);
