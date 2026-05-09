@@ -385,6 +385,11 @@ function startRace() {
             stunned[i] = 8;
             setStun(i, true);
             beep(180, 0.1);
+            obstacles[i] = obstacles[i].filter(o => o !== hit);
+            hit.el.style.transition = 'opacity 0.6s, transform 0.6s';
+            hit.el.style.opacity = '0';
+            hit.el.style.transform = 'translateY(20%) rotate(75deg) scale(0.6)';
+            setTimeout(() => hit.el.remove(), 700);
           } else {
             positions[i] = newPos;
             if (Math.random() < 0.15) hop(i);
