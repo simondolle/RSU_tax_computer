@@ -7,18 +7,19 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body {
-    height: 100%;
-    overflow: hidden;
+    min-height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background: linear-gradient(180deg, #87ceeb 0%, #b6e3a7 60%, #7fc56e 100%);
     user-select: none;
+    overflow-x: hidden;
   }
   #game {
-    height: 100vh;
+    min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
     padding: 8px;
-    gap: 8px;
+    gap: 6px;
   }
   h1 {
     text-align: center;
@@ -127,8 +128,14 @@
   }
   .pick-btn {
     background: #ffb3c1;
-    font-size: clamp(20px, 6vw, 28px);
-    padding: 10px 14px;
+    font-size: clamp(18px, 5vw, 24px);
+    padding: 6px 10px;
+  }
+  #start {
+    background: #7fc56e;
+    color: white;
+    font-size: clamp(16px, 5vw, 22px);
+    padding: 14px 24px;
   }
   .pick-btn.selected {
     background: #ff6b9d;
@@ -163,15 +170,15 @@
   <h1>🥕 La Course des Lapins 🐰</h1>
   <div id="scoreboard">Manches: <span id="races">0</span> · Victoires: <span id="wins">0</span></div>
   <div id="status">Choisis ton lapin champion !</div>
-  <div id="track">
-    <div class="finish"></div>
-    <div class="carrot">🥕</div>
-  </div>
-  <div id="cheer-hint">💡 Tape sur la piste pour encourager ton lapin !</div>
   <div id="picker" class="controls"></div>
   <div class="controls">
     <button id="start" disabled>🏁 Départ !</button>
     <button id="reset">🔄 Nouvelle course</button>
+  </div>
+  <div id="cheer-hint">💡 Tape sur la piste pour encourager ton lapin !</div>
+  <div id="track">
+    <div class="finish"></div>
+    <div class="carrot">🥕</div>
   </div>
 </div>
 
@@ -271,6 +278,8 @@ function startRace() {
   if (chosen === null || racing) return;
   racing = true;
   startBtn.disabled = true;
+  positions = RABBITS.map(() => 0);
+  rabbitsEl.forEach(r => r.style.left = '2%');
   statusEl.textContent = "3... 2... 1... GO ! 🏁";
   beep(440, 0.1);
   setTimeout(() => beep(440, 0.1), 400);
