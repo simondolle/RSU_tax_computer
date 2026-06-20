@@ -1,0 +1,9 @@
+credentials.json
+token.json
+form_info.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+apps_script/.clasp.json
+apps_script/.clasprc.json
